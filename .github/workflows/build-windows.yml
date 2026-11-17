@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "SPUTNIK_Community.zip"
+      - "SPUTNIK_Community.zip.b64"
       - ".github/workflows/build-windows.yml"
   workflow_dispatch:
 
@@ -21,14 +21,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Unpack project source
+          cache: npm
+          cache-dependency-path: _src/desktop/package-lock.json
+      - name: Decode and unpack project
         shell: pwsh
-        run: Expand-Archive -Path SPUTNIK_Community.zip -DestinationPath . -Force
+        run: |
+          $encoded = (Get-Content -Raw SPUTNIK_Community.zip.b64).Trim()
+          [IO.File]::WriteAllBytes("$PWD/SPUTNIK_Community.zip", [Convert]::FromBase64String($encoded))
+          Expand-Archive -Path SPUTNIK_Community.zip -DestinationPath _src -Force
       - name: Install dependencies
-        working-directory: SPUTNIK_Community/desktop
+        working-directory: _src/desktop
         run: npm install
       - name: Build installer and portable EXE
-        working-directory: SPUTNIK_Community/desktop
+        working-directory: _src/desktop
         env:
           VITE_API_URL: ${{ vars.SPUTNIK_API_URL }}
         run: npm run dist:win
@@ -36,5 +41,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SPUTNIK-Community-Windows-x64
-          path: SPUTNIK_Community/desktop/release/*
+          path: _src/desktop/release/*
           if-no-files-found: error
